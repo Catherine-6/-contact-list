@@ -1,0 +1,630 @@
+Листинг программы:
+Contacts.cpp
+#include <iostream>
+#include <string>
+#include <cctype>
+#include <fstream>
+#include <iomanip>
+#include <windows.h>
+#include "List1.h"
+#include <algorithm>
+using namespace std;
+
+int const MAX = 400;
+void littleprint(NOTE* tmp) { // вывод данных по порядку
+	if (tmp)
+		 cout <<  setw(25) << tmp->Name <<  setw(15) << tmp->Phone << " " << tmp->Data[0] << "." << tmp->Data[1] << "." << tmp->Data[2] <<  endl;
+}
+ string nameconvert( string name) // при загрузке из файла конвертируем
+{
+	for (size_t i = 0; i < name.length(); i++)
+		if (name[i] == ' ')
+			name[i] = '.';
+	return name;
+}
+ string nameunconvert( string name) // при загрузке  в файл 
+{
+	for (size_t i = 0; i < name.length(); i++)
+		if (name[i] == '.')
+			name[i] = ' ';
+	return name;
+}
+bool namecheck( string name) // проверка имени
+{
+	if (name.size() == 0) {
+		return false;
+	}
+	int check = 0;
+	for (size_t i = 0; i < name.length(); i++)
+	{
+		//  cout << "Проверяю символ " << name[i]<<" ";
+		if (int('a') <= int(name[i]) && int(name[i]) <= int('z') ||
+			int('A') <= int(name[i]) && int(name[i]) <= int('Z') ||
+			int('А') <= int(name[i]) && int(name[i]) <= int('Я') ||
+			int('а') <= int(name[i]) && int(name[i]) <= int('я') ||
+			int(name[i]) == int(' ') ||
+			int(name[i]) == int('ё') ||
+			int(name[i]) == int('Ё') ||
+			int(name[i]) == int('-'))
+		{
+			// cout << " - С ним всё хорошо" <<  endl;
+		}
+		else {
+			cout << name[i] << " - недопустимый символ для имени!" << endl;
+			return false;
+		}
+	}
+	return true;
+}
+bool phonecheck(string Phone) // проверка номера телефона (11 цифр)
+{
+	if (Phone.length() != 11)
+		return false;
+	for (size_t i = 0; i < Phone.length(); i++) {
+		if (!iswdigit(Phone[i]))
+			return false;
+	}
+	return true;
+}
+bool phonesamecheck(ListNOTE*& list,  string Phone) // проверка, есть ли такой же номер в БД
+{
+	if (list)
+	{
+		NOTE* tmp = list->Head;
+		int count = 0;
+		for (int i = 0; i < list->size; i++) {
+			if (Phone == tmp->Phone)
+				count++;
+			tmp = tmp->next;
+		}
+		if (count < 1)
+			return true;
+		else
+			return false;
+	}
+}
+bool namesamecheck(ListNOTE*& list,  string name) // проверка, есть ли такое же имя в БД
+{
+	NOTE* tmp = list->Head;
+	int count = 0;
+	for (int i = 0; i < list->size; i++) {
+		if (name == tmp->Name)
+			count++;
+		tmp = tmp->next;
+	}
+	if (count < 1)
+		return true;
+	else
+		return false;
+}
+bool daycheck(int* days) // проверка даты рождения
+{
+	if (days[0] < 1 || days[0] > 31)
+		return false;
+	if ((days[1] == 4 || days[1] == 6 || days[1] == 9 || days[1] == 11) && days[0] > 30 && days[0] < 1)
+		return false;
+	if (days[1] == 2 && days[0] > 29)
+		return false;
+	if (days[1] == 2 && days[0] == 29)
+	{
+		int temp = days[2] - 1000;
+		while (temp > 0)
+			temp -= 4;
+		if (temp != 0)
+			return false;
+	}
+	return true;
+}
+int inputint() // проверяет, ввёл ли форматом int
+{
+	int x; int i = 0;
+	cin >> x;
+	while (cin.fail() || cin.get() != '\n')
+	{
+		cin.clear();
+		cin.ignore(cin.rdbuf()->in_avail());
+		cout << "Повторите ввод: ";
+		cin >> x;
+	}
+	return x;
+}
+ string inputstring(int flag) // проверяет, ввёл ли форматом string
+{
+	 string str;
+	 getline(cin, str);
+	if (flag == 1)
+		while (!namecheck(str))
+		{
+			 cout << "Некорректный ввод. Пожалуйста, попробуйте снова: " << endl;
+			 getline(cin, str);
+		}
+	if (flag == 2)
+		while (!phonecheck(str))
+		{
+			 cout << "Некорректный ввод. Пожалуйста, попробуйте снова: " << endl;
+			 getline(cin, str);
+		}
+	int i = str.size();
+	while (str[i - 1] == ' ')
+	{
+		str[i - 1] = '\0';
+		i--;
+	}
+	for (int j = 0; j < i; ++j)
+	{
+		while (str[j] == ' ' && str[j + 1] == ' ')
+		{
+			for (int k = j; k < str.size() - 1; ++k)
+				str[k] = str[k + 1];
+			i--;
+		}
+	}
+	if (str[0] == ' ')
+	{
+		for (int k = 0; k < str.size() - 1; ++k)
+			str[k] = str[k + 1];
+		i--;
+	}
+	str.resize(i);
+	return str;
+}
+bool ultimatecheck(NOTE*& tmp, ListNOTE*& list) // проверяет форматы данных контакта при добавлении записей из файла в приложение
+{
+	if (!namecheck(tmp->Name) || !phonecheck(tmp->Phone)) {
+		cout << "Номера или имена контактов не соответствуют формату" << endl;
+		return false;
+	}
+	if (!phonesamecheck(list, tmp->Phone)) {
+		cout << "Номера телефонов повторяются" <<  endl;
+		return false;
+	}
+	if (tmp->Data[1] < 1 && tmp->Data[1] > 12 || tmp->Data[2] < 0 && tmp->Data[2] > 2020 || (!daycheck(tmp->Data))) {
+		cout << "Даты имеют неверный формат" <<  endl;
+		return false;
+	}
+	return true;
+}
+void  addElement(ListNOTE*& list) // функция добавление элемента (контакта) в БД
+{
+	NOTE* newCell = new NOTE;
+	 cout << "Введите имя контакта:" <<  endl;
+	 string name = inputstring(1);
+	newCell->Name = name;
+	 cout << "Введите номер телефона (89...)" <<  endl;
+	 string Phone = inputstring(2);
+	while (!phonesamecheck(list, Phone))
+	{
+		cout << "Некорректный ввод. Повторите: " <<  endl;
+		Phone = inputstring(2);
+	}
+	newCell->Phone = Phone;
+	cout << "Введите дату рождения.\nГод (с 0 до 2020): ";
+	newCell->Data[2] = inputint();
+	while (newCell->Data[2] < 0 || newCell->Data[2] > 2020)
+	{
+		cout << "Некорректный ввод. Повторите: ";
+		newCell->Data[2] = inputint();
+	}
+	cout << "Месяц (числом): ";
+	newCell->Data[1] = inputint();
+	while (newCell->Data[1] < 1 || newCell->Data[1] > 12) {
+		cout << "Некорректный ввод. Повторите: ";
+		newCell->Data[1] = inputint();
+	}
+	cout << "День: ";
+	newCell->Data[0] = inputint();
+	while (!daycheck(newCell->Data))
+	{
+		cout << "Некорректный ввод. Повторите: ";
+		newCell->Data[0] = inputint();
+	}
+	AddList(list, newCell);
+	cout << "Добавлено в список" <<  endl;
+}
+int existenceNameInList(ListNOTE*& list,  string name) // наличие имени в списке
+{
+	int count = 0;
+	NOTE* tmp = list->Head;
+	for (int i = 0; i < list->size; i++) {
+		if (tmp->Name == name)
+			count++;
+		tmp = tmp->next;
+	}
+	return count;
+}
+int existencePhoneInList(ListNOTE*& list,  string Phone) // наличие номера телефона в списке
+{
+	NOTE* tmp = list->Head;
+	for (int i = 0; i < list->size; i++) {
+		if (tmp->Phone == Phone)
+			return 1;
+		tmp = tmp->next;
+	}
+	return 0;
+}
+
+void notedelete(ListNOTE*& list) // удаление контакта по введенным пользователем данным
+{
+	 cout << "Введите имя контакта или номер телефона " <<  endl;
+	 string NameOrPhone;
+	 string Phone;
+	 string name;
+	 getline(cin, NameOrPhone);
+	 while (!namecheck(NameOrPhone))
+	 {
+		if (phonecheck(NameOrPhone)) {
+			cout << "Поэтому это номер! Ищу в базе данных: " <<  endl;
+			Phone = NameOrPhone;
+			NOTE* tmp = Search_by_Phone(list, Phone);
+			if (tmp)
+				Delete(list, tmp);
+			cout << "Контакт с данным номером удален" << endl;
+			return;
+		}
+		 getline(cin, NameOrPhone);
+	 }
+	 name = NameOrPhone;
+	 if (existenceNameInList(list, name) > 0)
+	 {
+		if (existenceNameInList(list, name) > 1)
+		{
+			 cout << "Контактов с таким именем найдено несколько. Введите номер телефона: " <<  endl;
+			 Search_by_NameALL(list, name);
+			 string Phone;
+			 getline(cin, Phone);
+			while (!phonecheck(Phone))
+			{
+				 cout << "Некорректный ввод. Повторите: " <<  endl;
+				 getline(cin, Phone);
+			}
+			Delete(list, Search_by_Phone(list, Phone));
+			return;
+		}
+		else {
+			Delete(list, Search_by_Name(list, name));
+			return;
+		}
+	 }
+	 else
+	 {
+		 cout << "Этого имени в контактах не существует." <<  endl;
+	 }
+}
+void fileout(ListNOTE*& list) // запись данных из файла
+{
+	ofstream fout("C:\\Учеба\\2 курс\\курсовой ОП\\Contacts\\database.txt");
+
+	NOTE* tmp = list->Head;
+	while (tmp)
+	{
+		string name = nameconvert(tmp->Name);
+		fout << '\n';
+		fout << ' ' << name;
+		fout << ' ' << tmp->Phone;
+		fout << ' ' << tmp->Data[0];
+		fout << ' ' << tmp->Data[1];
+		fout << ' ' << tmp->Data[2];
+		tmp = tmp->next;
+	}
+	fout.close();
+}
+void filein(ListNOTE*& list) // запись данных в файл
+{
+	ifstream fin("C:\\Учеба\\2 курс\\курсовой ОП\\Contacts\\database.txt");
+	if (!fin.is_open()) {
+		 cout << "Не удалось открыть файл." <<
+			 endl;
+	}
+	else
+	{
+		bool flag = true;
+		if (list)
+			list = NULL;
+		while (!fin.eof())
+		{
+			NOTE* tmp = new NOTE;
+			string name;
+			fin >> name >> tmp->Phone >> tmp->Data[0] >> tmp->Data[1] >> tmp -> Data[2];
+			tmp->Name = nameunconvert(name);
+			if (!ultimatecheck(tmp, list) || tmp->Name == "")
+			{
+				cout << "Файл некорректен." <<  endl;
+				list = NULL;
+				flag = false; 
+				break;
+			}
+			AddList(list, tmp);
+		}
+		if (flag)
+		{
+			cout << "Загрузка завершена!" <<  endl;
+		}
+		fin.close();
+	}
+}
+
+int main() { // главная функция
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+	setlocale(LC_CTYPE, "rus");
+	system("color 0E");
+	ListNOTE* list = NULL;
+	int menu;
+	menu = 1;
+	while (menu)
+	{
+		if (list == NULL) {
+			 cout <<  endl;
+			 cout << "  Введите номер команды: \n";
+			 cout << "  1 добавить новый элемент в список \n";
+			 cout << "  6 загрузить из файла database \n";
+			 cout << "  0 выход. \n";
+			 cout << "  Ввод: ";
+		}
+		else
+		{
+			 system("pause");
+			 system("cls");
+			 cout << "  Введите номер команды: \n";
+			 cout << "  1 добавить новый элемент в БД \n";
+			 cout << "  2 удалить элемент из БД \n";
+			 cout << "  3 поиск информации о человеке по номеру телефона \n";
+			 cout << "  4 вывод на экран содержимого БД \n";
+			 cout << "  5 сохранить; \n";
+			 cout << "  6 загрузить из файла \n";
+			 cout << "  0 выход. \n";
+			 cout << "  Ввод: ";
+		}
+		menu = inputint();
+		if (menu == 0)
+			break;
+		else if (menu == 1)
+			 addElement(list);
+		else if (menu == 2 && list) {
+			if (list) {
+				Show(list);
+				 cout << "Введите номер команды: " << endl;
+				 cout << " 1.Удалить по порядковому номеру в БД " <<  endl;
+				 cout << " 2.Удалить по данным " <<  endl;
+				 cout << " 0.Отмена удаления " <<  endl;
+				int choice = inputint();
+				if (choice == 1)
+				{
+					 cout << "Введите порядковый номер контакта в БД" <<  endl;
+					int num = 0;
+					while (num == 0 || num > list->size) {
+						num = inputint();
+					}
+					NOTE* tmp = list->Head;
+					while (tmp->num != num) {
+						tmp = tmp->next;
+					}
+					Delete(list, tmp);
+				}
+				else if (choice == 2)
+				{
+					notedelete(list);
+				}
+			}
+		}
+		
+		else if (menu == 3 && list)
+		{
+			Show(list);
+			 cout << "Поиск:" <<  endl;
+			 cout << "Введите номер команды:" <<  endl;
+			 cout << " 1.по номеру телефона " <<  endl;
+			 cout << " 0.отмена поиска " <<  endl;
+			int choice = inputint();
+			if (choice == 1) {
+				 cout << "(для отмены поиска введите 0)" <<  endl;
+				 cout << "Введите телефон: \n";
+				 string Phone;
+				 getline(cin, Phone);
+				while (!phonecheck(Phone) || phonesamecheck(list, Phone))
+				{
+					if (Phone == "0")
+						break;
+					cout << "Телефон не найден или некорректен! Проверьте правильность ввода!" <<  endl;
+					cout << "(для выхода введите 0)" <<  endl;
+					 getline( cin, Phone);
+				}
+				if (Phone != "0") {
+					NOTE* tmp = Search_by_Phone(list, Phone);
+					littleprint(tmp);
+				}
+			}
+		}
+
+		else if (menu == 4 && list)
+			Show(list);
+		else if (menu == 5 && list)
+		{
+			if (list)
+				fileout(list);
+			 cout << "Сохранено!" <<  endl;
+		}
+		else if (menu == 6) {
+			int choice = 1;
+			if (list) {
+
+				 cout << "Это удалит старую базу" << endl;
+				 cout << "1 - да\n" << endl;
+				 cout << "2 - нет\n" << endl;
+				choice = inputint();
+			}
+			if (choice == 1)
+			{
+				filein(list);
+			}
+			else if (choice == 2) {
+				 cout << "-";
+			}
+}
+		else
+		 cout << "  Такого пункта нет в меню " <<  endl;
+}
+system("pause");
+}
+
+List1.h
+#pragma once
+#include <iostream>
+#include <string>
+using namespace std;
+
+//структура ячейки
+struct NOTE {
+	 int num;
+	 string Name;
+	 string Phone;
+	int Data[3];
+	NOTE* next;
+};
+struct ListNOTE {
+	NOTE* Head; // первый элемент
+	NOTE* Tail; // последний элемент
+	int size;
+};
+
+void ClearList(ListNOTE*& list);
+void AddList(ListNOTE*& list, NOTE*& cell);
+void Show(ListNOTE* list);
+void Delete(ListNOTE*& list, int num);
+void Delete(ListNOTE*& list, NOTE* cell);
+NOTE* Search_by_Phone(ListNOTE*& list,  string Phone);
+NOTE* Search_by_Name(ListNOTE*& list,  string Name);
+void Search_by_NameALL(ListNOTE*& list,  string Name);
+
+void ClearList(ListNOTE*& list)
+{
+	if (list->Head) {
+		while (list->size > 0) // пока размерность списка не станет нулевой
+		{
+			NOTE* temp = list->Head;
+			if (list->Head->next) {
+				temp = list->Head->next;
+			}
+			delete list->Head; // освобождаем память от активного элемента
+			list->Head = temp; // смена адреса начала на адрес следующего элемента
+			list->size--; // один элемент освобожден, корректируем число элементов
+		}
+	}
+	list->Head = NULL;
+}
+void AddList(ListNOTE*& list, NOTE*& cell)
+{
+	if (cell != NULL) {
+		NOTE* newelem = cell; // выделение памяти для нового элемента списка
+		if (!list) {
+			list = new ListNOTE;
+			list->Head = newelem;
+			list->Tail = newelem;
+			list->Head->next = NULL;
+			list->size = 1; // при каждом добавлении элемента увеличиваем число элементов в списке
+				return;
+		}
+		NOTE* temp = list->Head; // выделение памяти для нового элемента списка
+		while (temp->next)
+		{
+			temp = temp->next;
+		}
+		temp->next = newelem;
+		list->Tail = newelem;
+		list->Tail->next = NULL;
+		list->size++; // при каждом добавлении элемента увеличиваем число элементов в списке
+	}
+}
+void numbering(ListNOTE*& list) { // нумерация контактов по порядку
+	NOTE* tmp = list->Head; // указываем на голову
+	int i = 1;
+	while (tmp) // пока не выполнен признак прохода по всему списку
+	{
+		tmp->num = i;
+		i++;
+		tmp = tmp->next; // указываем, что нужен следующий элемент
+	}
+}
+void Show(ListNOTE* list) // выводит на экран весь список контактов
+{
+	if (list->size < 1) {
+		 cout << "Массив пуст" <<  endl;
+		return;
+	}
+	numbering(list);
+	NOTE* tempHead = list->Head; // указываем на голову
+	while (tempHead) // пока не выполнен признак прохода по всему списку
+	{
+		 cout << tempHead->num << " " << tempHead->Name <<  setw(15) <<
+			tempHead->Phone << " " << tempHead->Data[0] << "." << tempHead->Data[1] << "." <<
+			tempHead->Data[2] <<  endl;
+		tempHead = tempHead->next; // указываем, что нужен следующий элемент
+	}
+	 cout << "\n";
+}
+void Delete(ListNOTE*& list, int num) { // удаление контакта из файла и таблицы по номеру в таблице
+	if (num > list->size || num < 1 || list->size <= 0) {
+		 cout << "Ошибка(списка ещё нет)" <<  endl;
+		return;
+	}
+	int q = 0;
+	NOTE* tmp = list->Head;
+	while (q < num - 1)
+	{
+		tmp = tmp->next; // указываем, что нужен следующий элемент
+		q++;
+	}
+	 cout << "Удаление " << tmp->Name << " \n"; // выводим удаляемый элемент списка на экран
+		tmp->next = tmp->next->next;
+	list->size--;
+}
+void Delete(ListNOTE*& list, NOTE* cell) { // удаление 
+	if (cell != NULL) {
+		NOTE* tmp = list->Head;
+		if (cell == list->Head) {
+			list->Head = list->Head->next;
+			list->size--;
+			return;
+		}
+		while (tmp->next != cell)
+		{
+			tmp = tmp->next; // указываем, что нужен следующий элемент
+		}
+		tmp->next = tmp->next->next;
+		list->size--;
+	}
+}
+NOTE* Search_by_Phone(ListNOTE*& list,  string Phone) { // поиск по номеру
+	NOTE* tmp = list->Head; // указываем на голову
+	while (tmp) // пока не выполнен признак прохода по всему списку
+	{
+		if (tmp->Phone == Phone) {
+			return tmp;
+		}
+		tmp = tmp->next; // указываем, что нужен следующий элемент
+	}
+	 cout << " Не найдено " <<  endl;
+	return NULL;
+}
+NOTE* Search_by_Name(ListNOTE*& list,  string Name) { // поиск по имени
+	NOTE* tmp = list->Head; // указываем на голову
+	while (tmp) // пока не выполнен признак прохода по всему списку
+	{
+		if (tmp->Name == Name) {
+			return tmp;
+		}
+		tmp = tmp->next; // указываем, что нужен следующий элемент
+	}
+	 cout << " Не найдено " <<  endl;
+	return NULL;
+}
+void Search_by_NameALL(ListNOTE*& list,  string Name) { // вывод всех контактов по имени
+	NOTE* tmp = list->Head; // указываем на голову
+	while (tmp) // пока не выполнен признак прохода по всему списку
+	{
+		if (tmp->Name == Name) {
+			 cout <<  setw(25) << tmp->Name <<  setw(15) << tmp -> Phone << " " << tmp->Data[0] << "." << tmp->Data[1] << "." << tmp->Data[2] <<  endl;
+		}
+		tmp = tmp->next; // указываем, что нужен следующий элемент
+	}
+}
